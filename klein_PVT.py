@@ -106,6 +106,8 @@ def compute_patches(points, circumcenters, triangles):
 
 def plot_Klein_PVT(intensity,radius,tol):
     points = poisson_points_hyp(intensity,radius + np.arccosh(1 - np.log(1 - tol)/(2*np.pi*intensity))) # add margin to radius to avoid edge effects, ensures that with probability tol a point will be sampled in this windo
+    if len(points) > 30000:   # choose your threshold
+        raise ValueError(f"Oops! those are {len(points)} points in the Poisson sample and we do not want anything to crash. Try reducing some parameter.")
     tri = Delaunay(points) # Delaunay triangulation of the points
     triangles_idx = tri.simplices # indices of the triangles
     triangles_physical = points[triangles_idx] # shape (num_triangles,vertices,dimensions) where m is the number of triangles
@@ -130,17 +132,20 @@ def plot_Klein_PVT(intensity,radius,tol):
     ax.set_ylim(-w, w)
     ax.set_aspect('equal','box')
     ax.axis('off')
-    ax.set_title(f"Intensity = {a}, Radius = {b}, Tolerance = {c}")
+    ax.set_title(f"Intensity = {intensity}, Radius = {radius}, Tolerance = {tol}")
     return fig, ax
 
 # Button to generate
-if c >= 1:
-    st.error("Error: tolerance must be stricly less than 1.")
+if c >= 1 or c <= 0:
+    st.error("Error: tolerance must be strictly less than 1.")
 else:
     if st.button("Generate plot"):
-        fig, ax = plot_Klein_PVT(a, b, c)
+        try:
+            fig, ax = plot_Klein_PVT(a, b, c)
+            st.pyplot(fig)
 
-        st.pyplot(fig)
+        except Exception as e:
+            st.error(f"❌ Error generating plot: {e}")
 
     else:
         st.info("Change parameters and click **Generate plot**.")
