@@ -11,10 +11,10 @@ from matplotlib.patches import Polygon
 from matplotlib.collections import PatchCollection
 from scipy.spatial import ConvexHull
 
-st.set_page_config(page_title="Hyperbolic PVT sampler", layout="centered")
+st.set_page_config(page_title="Hyperbolic vs. Euclidean PVT sampler", layout="centered")
 
-st.title("Hyperbolic PVT sampler")
-st.markdown("When you click **Generate** a sample from the Poisson-Voronoi tessellation on hyperbolic plane will be plotted on the Klein model.")
+st.title("Hyperbolic vs. Euclidean PVT sampler")
+st.markdown("When you click **Generate** a sample from the Poisson-Voronoi tessellation on hyperbolic plane in the Klein model and on Euclidean plane will be plotted.")
 
 # Parameter inputs (change ranges/defaults to match your needs)
 a = st.number_input("Intensity", value=1.0, step=0.01, format="%.3f")
@@ -38,6 +38,15 @@ def poisson_points_hyp(intensity,radius): # intensity, radius of the disk of sam
     num_points = np.random.poisson(intensity * 2*np.pi * (np.cosh(radius)-1)) # number of points in the disk, Poison (intensity*area)
     radii_coordinates = np.random.uniform(low=0, high=1, size=num_points) # sample num_points from uniform in [0,1]
     radii = np.tanh(np.arccosh(1 + radii_coordinates*(np.cosh(radius)-1))/2) # sample radii by inverse transform sampling
+    angles = np.random.uniform(low=0, high=2*np.pi, size=num_points) #angles sampled form uniform in [0,2pi]
+    return np.array([radii*np.cos(angles),radii*np.sin(angles)]).T 
+#output is points in Poincare disk with shape (num_points,2), for compatibility with Delaunay
+
+# Generate Poisson point process in euclidean space
+def poisson_points_euc(intensity,radius): # intensity, radius of the disk of sampling in hyperbolic metric
+    num_points = np.random.poisson(intensity * np.pi * radius**2) # number of points in the disk, Poison (intensity*area)
+    radii_coordinates = np.random.uniform(low=0, high=1, size=num_points) # sample num_points from uniform in [0,1]
+    radii = np.sqrt(radii_coordinates) * radius# sample radii by inverse transform sampling
     angles = np.random.uniform(low=0, high=2*np.pi, size=num_points) #angles sampled form uniform in [0,2pi]
     return np.array([radii*np.cos(angles),radii*np.sin(angles)]).T 
 #output is points in Poincare disk with shape (num_points,2), for compatibility with Delaunay
@@ -132,23 +141,56 @@ def plot_Klein_PVT(intensity,radius,tol):
     ax.set_ylim(-w, w)
     ax.set_aspect('equal','box')
     ax.axis('off')
-    ax.set_title(f"Intensity = {intensity}, Radius = {radius}, Tolerance = {tol}")
+    ax.set_title(f"Hyperbolic (Klein model) Intensity = {intensity}, Radius = {radius}, Tolerance = {tol}")
+    return fig, ax
+
+def plot_euc_PVT(intensity,radius,tol):
+    points = poisson_points_euc(intensity,radius + np.sqrt(-np.log(1-tol) / (intensity * np.pi))) # add margin to radius to avoid edge effects, ensures that with probability tol a point will be sampled in this windo
+    tri = Delaunay(points) # Delaunay triangulation of the points
+    triangles_idx = tri.simplices # indices of the triangles
+    triangles_physical = points[triangles_idx] # shape (num_triangles,vertices,dimensions) where m is the number of triangles
+    circumcenters, circumradii = circumcenters_2d(triangles_physical) # shape (num_triangles,2), (num_triangles,)
+
+    mask = (triangles_idx[:,:,np.newaxis] == range(len(points))).any(axis=1) # mask to identify triangles containing each point
+    hulls = [ConvexHull(circumcenters[mask[:,i],:]) for i in range(len(points)) if np.sum(mask[:,i])>=3] # only keep cells with at least 3 vertices
+    patches = [Polygon(hull.points[hull.vertices],closed = True) for hull in hulls] # list of polygons for the cells
+    colors = np.random.rand(len(points),4) # random colour for each cell
+    collection = PatchCollection(patches, facecolor=colors, edgecolor='black', alpha=0.7)
+
+    # Plot
+    fig, ax = plt.subplots()
+    ax.add_collection(collection)
+    ax.set_xlim(-radius, radius)
+    ax.set_ylim(-radius, radius)
+    ax.set_aspect('equal','box')
+    ax.axis('off')
+    ax.set_title(f"Euclidean Intensity = {intensity}, Radius = {radius}, Tolerance = {tol}")
+    plt.show()
     return fig, ax
 
 # Button to generate
 if c >= 1 or c <= 0:
     st.error("Error: tolerance must be strictly less than 1.")
 else:
-    if st.button("Generate plot"):
+    if st.button("Generate both plots"):
         try:
-            fig, ax = plot_Klein_PVT(a, b, c)
-            st.pyplot(fig)
+            fig1, ax1 = plot_Klein_PVT(a, b, c)
+            fig2, ax2 = plot_euc_PVT(a, b, c)
 
+            # Display side-by-side
+            col1, col2 = st.columns(2)
+            with col1:
+                st.pyplot(fig1)
+                st.caption("Plot 1: Klein model PVT")
+
+            with col2:
+                st.pyplot(fig2)
+                st.caption("Plot 2: Euclidean PVT")
         except Exception as e:
-            st.error(f"❌ Error generating plot: {e}")
-
+            st.error(f"❌ Error generating plots: {e}")
     else:
-        st.info("Change parameters and click **Generate plot**.")
+        st.info("Change parameters and click **Generate both plots**.")
+
 
 
 
