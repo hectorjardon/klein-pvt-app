@@ -17,9 +17,9 @@ st.title("Hyperbolic vs. Euclidean PVT sampler")
 st.markdown("When you click **Generate** a sample from the Poisson-Voronoi tessellation on hyperbolic plane in the Klein model and on Euclidean plane will be plotted.")
 
 # Parameter inputs (change ranges/defaults to match your needs)
-a = st.number_input("Intensity", value=1.0, step=0.01, format="%.3f")
-b = st.number_input("Hyperbolic radius", value=3.0, step=1.0, format="%.1f")
-c = st.number_input("Tolerance", value=0.9, step=0.01, format="%.2f")
+a = st.number_input("Intensity", value=1.0, step=0.01, format="%.5f")
+b = st.number_input("Radius", value=3.0, step=1.0, format="%.1f")
+c = st.number_input("Tolerance", value=0.9, step=0.01, format="%.3f")
 
 #Code generating the function and plot
 
@@ -141,11 +141,11 @@ def plot_Klein_PVT(intensity,radius,tol):
     ax.set_ylim(-w, w)
     ax.set_aspect('equal','box')
     ax.axis('off')
-    ax.set_title(f"Hyperbolic (Klein model) Intensity = {intensity}, Radius = {radius}, Tolerance = {tol}")
+    ax.set_title(f"Intensity = {intensity}, Radius = {radius}, Tolerance = {tol}")
     return fig, ax
 
 def plot_euc_PVT(intensity,radius,tol):
-    points = poisson_points_euc(intensity,radius + np.sqrt(-np.log(1-tol) / (intensity * np.pi))) # add margin to radius to avoid edge effects, ensures that with probability tol a point will be sampled in this windo
+    points = poisson_points_euc(intensity,np.sqrt(2)*radius + np.sqrt(-np.log(1-tol) / (intensity * np.pi))) # add margin to radius to avoid edge effects, ensures that with probability tol a point will be sampled in this windo
     tri = Delaunay(points) # Delaunay triangulation of the points
     triangles_idx = tri.simplices # indices of the triangles
     triangles_physical = points[triangles_idx] # shape (num_triangles,vertices,dimensions) where m is the number of triangles
@@ -164,7 +164,7 @@ def plot_euc_PVT(intensity,radius,tol):
     ax.set_ylim(-radius, radius)
     ax.set_aspect('equal','box')
     ax.axis('off')
-    ax.set_title(f"Euclidean Intensity = {intensity}, Radius = {radius}, Tolerance = {tol}")
+    ax.set_title(f"Intensity = {intensity}, Radius = {radius}, Tolerance = {tol}")
     plt.show()
     return fig, ax
 
